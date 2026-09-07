@@ -1,46 +1,40 @@
 # MaxGodotUI
 
-用于 Godot .NET 项目的通用 C# UI 组件与视觉特效插件。
+Godot .NET 通用 UI 与视觉表现插件。当前 `0.2.0` 提供悬停内容定位、位移动画和颜色闪烁。运行时无需启用编辑器插件；组件不负责宿主规则或流程。
 
-当前版本 `0.1.0` 只有可启用、禁用的编辑器插件入口。UI 组件、视觉特效、主题资产和运行时 API 尚未实现；启用后不会出现额外面板，也不会修改自动加载项、项目设置或音频总线。
+## 安装
 
-## 环境与安装
+将本仓库根目录放在宿主 `addons/max_godot_ui/`。使用 Godot 4.7.2 .NET 与 .NET 8，宿主 `.csproj` 保留默认源码包含规则和 `<EnableDynamicLoading>true</EnableDynamicLoading>`。C# 与 GDScript 均通过同一组 Godot 类调用，不依赖 MaxGodotFrame。
 
-宿主必须使用 Godot **.NET 版**，并安装对应的 .NET SDK。即使游戏使用 GDScript，也需要 .NET 版引擎及宿主 C# 工程来编译本插件。骨架以 Windows、Godot 4.7.2 .NET、Godot.NET.Sdk 4.7.2 和 `net8.0` 为验证基线；其他版本和系统尚未验证。
+## 运行时 API
 
-本仓库根目录就是插件目录，不包含独立的 `project.godot` 或 `.csproj`。在已有 Godot .NET 项目的根目录执行：
+[HoverDetails](runtime/HoverDetails.cs) 继承 `PanelContainer`：
 
-```shell
-git submodule add https://github.com/AnonNetizen/MaxGodotUI.git addons/max_godot_ui
+- `ShowAt(Control content, Vector2 anchor, Vector2 bounds)`：接收尚无父节点的显示内容，在父级画布坐标中显示，按内容最小尺寸与面板内边距计算位置；在给定范围内保留 8 像素边距。
+- 内容设置 `CustomMinimumSize`，长内容需由宿主提供滚动容器或合适的显示形式。范围小于内容时无法保证全部可见，宿主负责可读尺寸。
+- 下一次显示会移除并释放旧内容；`Close()` 只隐藏面板。面板和内容忽略鼠标输入。
+
+[UiMotion](runtime/UiMotion.cs) 继承 `Node`：
+
+- `Move(Control target, Vector2 destination, double duration)`：以 Cubic / Out 插值移动到父坐标中的目标位置，返回 `Tween`。
+- `Flash(CanvasItem target, Color color, double duration)`：立即设置闪烁色，然后恢复调用前颜色，返回 `Tween`。
+- Tween 绑定目标生命周期，场景树暂停时停止。宿主需避免对同一属性同时发起冲突动画，不用动画回调计算规则结果。
+
+GDScript 示例：
+
+```gdscript
+var motion = load("res://addons/max_godot_ui/runtime/UiMotion.cs").new()
+add_child(motion)
+var tween: Tween = motion.Move($Panel, Vector2(100, 50), 0.2)
+await tween.finished
 ```
 
-也可以把仓库内容复制到 `addons/max_godot_ui/`，确保入口位于 `addons/max_godot_ui/plugin.cfg`，不要再套一层同名目录。
+宿主提供主题、文本与输入规则；组件不识别卡牌、战斗或平台事件。后续按实际需求增加震动等视觉表现，不提供声音、存档或设置模块。
 
-1. 宿主尚无 C# 工程时，先在 .NET 版编辑器中创建一个 C# 脚本，让编辑器生成工程。
-2. 构建宿主 C# 工程，使插件脚本参与编译；标准 Godot 工程默认包含项目目录内的 C# 源文件，自定义工程需保留插件目录。
-3. 在「项目 → 项目设置 → 插件」启用 MaxGodotUI。禁用时取消启用即可。
+## 验证
 
-已有宿主仓库的其他开发者可执行 `git submodule update --init --recursive` 获取固定版本。子模块更新由宿主提交新的 Git 引用，不自动追踪最新版。
-
-## 后续边界
-
-- 只承载通用 UI 组件与视觉特效，具体组件清单、资产和 API 在后续任务中设计。
-- 游戏通过参数和事件连接组件，游戏规则和画面主题由宿主决定。视觉特效不承担伤害或其他玩法结算。
-- 未来通过 Godot 节点、资源、兼容参数与信号支持 C# 和 GDScript 调用；两种脚本语言不直接互相继承。
-- 不依赖 MaxGodotFrame、具体游戏或 Steam；需要声音时由宿主连接自己的播放逻辑。
-
-## 开发与验证
-
-源码入口为 [MaxGodotUIPlugin.cs](editor/MaxGodotUIPlugin.cs)，使用独立命名空间及 `#if TOOLS`。使用独立测试宿主构建，再检查插件启用、禁用、重新启用及关闭后重新打开；不要把宿主工程、缓存或构建产物提交到插件仓库。
-
-当前验证只覆盖骨架加载；GDScript 运行时调用、组件交互和特效表现的验收留待实现后进行。公共接口使用跨系统路径，资源引用大小写与文件保持一致，通用逻辑不依赖 Windows 专用接口。
-
-随源码保留 Godot 生成的 `.cs.uid` 文件，使脚本资源身份在不同宿主中保持一致。
-
-插件工作先在本仓库完成检查、提交及推送，再由使用它的宿主更新子模块引用。保持本仓库可独立使用，文档和实现不引用宿主的私有文件。
-
-安装机制参考 [Godot 插件文档](https://docs.godotengine.org/en/stable/tutorials/plugins/editor/making_plugins.html)，语言边界参考 [Godot 跨语言调用文档](https://docs.godotengine.org/en/stable/tutorials/scripting/cross_language_scripting.html)。
+在独立宿主分别及同时加载通用插件，检查 GDScript 调用、面板首次边缘定位、移动／闪烁、暂停、编辑器启停及 ExportRelease 构建。测试宿主和生成文件留在插件仓库外。
 
 ## 许可
 
-采用 [MIT License](LICENSE)，版权署名为 `2026 AnonNetizen`。
+采用 [MIT License](LICENSE)。随源码保留 Godot 生成的 `.cs.uid`。
