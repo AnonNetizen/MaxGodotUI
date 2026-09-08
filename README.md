@@ -1,6 +1,6 @@
 # MaxGodotUI
 
-Godot .NET 通用 UI 与视觉表现插件。当前 `0.2.0` 提供悬停内容定位、位移动画和颜色闪烁。运行时无需启用编辑器插件；组件不负责宿主规则或流程。
+Godot .NET 通用 UI 与视觉表现插件。当前 `0.3.0` 提供悬停内容定位、位移动画、颜色闪烁和震动。运行时无需启用编辑器插件；组件不负责宿主规则或流程。
 
 ## 安装
 
@@ -18,6 +18,8 @@ Godot .NET 通用 UI 与视觉表现插件。当前 `0.2.0` 提供悬停内容�
 
 - `Move(Control target, Vector2 destination, double duration)`：以 Cubic / Out 插值移动到父坐标中的目标位置，返回 `Tween`。
 - `Flash(CanvasItem target, Color color, double duration)`：立即设置闪烁色，然后恢复调用前颜色，返回 `Tween`。
+- `Shake(Control target, float amplitude, double duration)`：固定衰减波形的位移震动，返回 `Tween`，不使用随机源。对同一目标再次调用时先恢复原位置，再启动新震动。
+- `StopShake(Control target)`：停止震动并恢复原位置；自然结束、目标离开场景树或节点退出时也会清理。宿主可用它实现立即关闭震动。
 - Tween 绑定目标生命周期，场景树暂停时停止。宿主需避免对同一属性同时发起冲突动画，不用动画回调计算规则结果。
 
 GDScript 示例：
@@ -29,11 +31,11 @@ var tween: Tween = motion.Move($Panel, Vector2(100, 50), 0.2)
 await tween.finished
 ```
 
-宿主提供主题、文本与输入规则；组件不识别卡牌、战斗或平台事件。后续按实际需求增加震动等视觉表现，不提供声音、存档或设置模块。
+宿主提供主题、文本与输入规则；组件不识别卡牌、战斗或平台事件。后续按实际需求增加视觉表现，不提供声音、存档或设置模块。
 
 ## 验证
 
-在独立宿主分别及同时加载通用插件，检查 GDScript 调用、面板首次边缘定位、移动／闪烁、暂停、编辑器启停及 ExportRelease 构建。测试宿主和生成文件留在插件仓库外。
+在独立宿主分别及同时加载通用插件，检查 GDScript 调用、面板首次边缘定位、移动／闪烁、震动暂停与停止复位、编辑器启停及 ExportRelease 构建。测试宿主和生成文件留在插件仓库外。
 
 ## 许可
 
