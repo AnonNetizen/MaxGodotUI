@@ -1,6 +1,6 @@
 # MaxGodotUI
 
-Godot .NET 通用 UI 与视觉表现插件。当前 `0.4.0` 提供交互式悬停说明、显式时钟过渡、视觉层运动、控件工厂与 CanvasItem shader；兼容 `0.3.0` 的悬停、位移、闪烁和震动接口。运行时无需启用编辑器插件；组件不负责宿主规则或流程。
+Godot .NET 通用 UI 与视觉表现插件。当前 `0.5.0` 提供程序化背景、交互式悬停说明、显式时钟过渡、视觉层运动、控件工厂与 CanvasItem shader；保留 `0.3.0`／`0.4.0` 的公共接口。运行时无需启用编辑器插件；组件不负责宿主规则或流程。
 
 ## 安装
 
@@ -32,6 +32,43 @@ await tween.finished
 ```
 
 宿主提供主题、文本与输入规则；组件不识别卡牌、战斗或平台事件。后续按实际需求增加视觉表现，不提供声音、存档或设置模块。
+
+## 0.5.0 程序化背景
+
+[BackgroundStyle](runtime/BackgroundStyle.cs) 是配置资源：`Shader`、`BaseColor`、`PrimaryColor`、`SecondaryColor`、`Speed`、`Intensity`、归一化 `Center` 和确定性 `Seed`。先配置再传入控件；同一资源可共享给多个控件，材质参数互相隔离。修改风格时传入新的资源，重复设置同一资源不会重置或重建材质。
+
+[ShaderBackground](runtime/ShaderBackground.cs) 继承 `Control`，内部固定两个忽略输入的绘制面：
+
+- `SetStyle(style, transitionSeconds = 0.18)`：首次立即显示，后续交叉淡化。正常只有一个绘制面，过渡最多两个；连续切换从当前占主导的风格过渡到最新目标，取消旧过渡并释放旧材质。
+- `UpdateSurface(time, delta, normalizedPointer, displaySize)`：时间单位为秒；指针范围为 `[-1, 1]`；显示尺寸是控件在屏幕上实际占用的像素，用于宽高比及边缘抗锯齿。控件自身的 `Size` 仍是父画布布局尺寸。
+- `SetDetail(2 / 1 / 0)`：动态程序图案／静态程序图案／低成本静态渐变。切为静态时立即收束过渡，忽略指针和时间；不由插件读取宿主设置。
+- `FinishTransition()`：立即呈现最新目标。`CurrentStyle`、`Detail`、`ActiveLayers`、`IsTransitioning`、`TransitionProgress` 可用于观察状态。
+- 控件不自行推进时间。暂停时传入原时间、零增量及原指针；速度由宿主决定。退出场景树会释放两个材质并清空风格，重新加入后需再设置风格。
+
+五个单遍 Compatibility CanvasItem 程序位于 `shaders/`：`background_nebula`（流动色带）、`background_starmap`（网格与轨道）、`background_warp`（径向光带）、`background_field`（外围能量场）、`background_halo`（扩散光环）。它们共享 [background_common.gdshaderinc](shaders/background_common.gdshaderinc) 的噪声、星点、几何与调色函数；无纹理、屏幕采样、内置 `TIME`、临时粒子或随机源依赖。自定义 shader 需遵循该 include 的 uniform 名称及颜色调制约定，才能使用控件的时钟、等级和交叉淡化。
+
+```csharp
+var style = new BackgroundStyle {
+    Shader = GD.Load<Shader>("res://addons/max_godot_ui/shaders/background_nebula.gdshader"),
+    PrimaryColor = new Color("55bbcc"), SecondaryColor = new Color("665599")
+};
+var background = new ShaderBackground { Size = new Vector2(1280, 720) };
+AddChild(background);
+background.SetStyle(style);
+background.UpdateSurface(3.0, 0.016, Vector2.Zero, new Vector2(1280, 720));
+```
+
+```gdscript
+var style = load("res://addons/max_godot_ui/runtime/BackgroundStyle.cs").new()
+style.Shader = load("res://addons/max_godot_ui/shaders/background_starmap.gdshader")
+var background = load("res://addons/max_godot_ui/runtime/ShaderBackground.cs").new()
+add_child(background)
+background.size = Vector2(1280, 720)
+background.SetStyle(style, 0.18)
+background.UpdateSurface(3.0, 0.016, Vector2.ZERO, Vector2(1280, 720))
+```
+
+`AmbientView` 和 `ambient` shader 继续保留，供依赖图片背景的现有宿主使用。
 
 ## 0.4.0 通用表现 API
 
