@@ -70,6 +70,36 @@ background.UpdateSurface(3.0, 0.016, Vector2.ZERO, Vector2(1280, 720))
 
 `AmbientView` 和 `ambient` shader 继续保留，供依赖图片背景的现有宿主使用。
 
+## 0.5.0 轮廓亮边与柔光
+
+[UiHighlight](runtime/UiHighlight.cs) 是忽略输入的 `Control`，通过 [HighlightStyle](runtime/HighlightStyle.cs) 配置颜色、线宽、柔光宽度／透明度、角标长度、呼吸幅度与周期。组件不识别交互状态，宿主决定状态优先级和样式。
+
+- `Source` 指定视觉控件，`SourceRect` 为空时使用来源尺寸，`Radius` 指定圆角。绘制时读取来源最新画布变换；可放在来源内部，也可放在宿主独立裁切的装饰层。来源的布局和输入范围不变。
+- `SetStyle(style, seconds = 0.14)` 从当前外观切换到新样式；`null` 淡出。重复设置同一资源不重启过渡；样式资源配置后按只读共享。
+- `Pulse(style, seconds = 0.16)` 立即应用一个临时样式，结束时恢复最新目标样式。重复调用替换当前临时反馈，不叠加。它不占用 `UiTimeline` 的临时效果预算。
+- `UpdateSurface(time, delta)` 接收宿主秒数，零增量冻结过渡和临时样式；暂停呼吸需同时保持 `time`。组件不自行推进时钟。
+- `SetDetail(2 / 1 / 0)` 对应完整／静态薄柔光／无柔光即时描边；角标始终保留。呼吸幅度最大 10%，无样式或来源不可见时不持续更新材质参数。
+- `CurrentStyle`、`IsTransitioning`、`IsPulsing`、`SourceTransform` 与 `ParameterUpdates` 可供宿主检查。换父节点保留样式及过渡进度；离树时释放原生材质，重新加入后的首次更新恢复参数，不重播过渡。宿主推进时发现来源销毁也立即隐藏并释放材质。外置装饰的节点生命周期由宿主与来源一起管理。
+
+共享 [highlight_outline](shaders/highlight_outline.gdshader) 是单遍 Compatibility 距离场轮廓，使用像素导数抗锯齿，正文内部透明；不依赖图片、粒子、屏幕采样或 SubViewport。各控件材质参数独立，外部留白与裁切由宿主决定。
+
+```csharp
+var outline = new UiHighlight { Source = visual, Radius = 4 };
+decorationLayer.AddChild(outline);
+outline.SetStyle(new HighlightStyle { Ink = Colors.Cyan, GlowWidth = 8, CornerLength = 14 });
+outline.UpdateSurface(2.0, 0.016);
+```
+
+```gdscript
+var outline = load("res://addons/max_godot_ui/runtime/UiHighlight.cs").new()
+outline.Source = $Visual
+add_child(outline)
+var style = load("res://addons/max_godot_ui/runtime/HighlightStyle.cs").new()
+style.Ink = Color.CYAN
+outline.SetStyle(style, 0.14)
+outline.UpdateSurface(2.0, 0.016)
+```
+
 ## 0.4.0 通用表现 API
 
 新增组件均可在未启用编辑器插件时使用，Godot 属性、`Callable` 和信号对 C#／GDScript 开放。C# 方法的可选参数不会自动成为 GDScript 默认参数；GDScript 调用须给出完整参数，空回调用 `Callable()`，空详情用 `null`。Godot 4.7.2 的 C# `Callable` 不能往返传递 GDScript 匿名函数及绑定参数，见 [Godot 引擎问题 #97358](https://github.com/godotengine/godot/issues/97358)；GDScript 传入 `Callable(self, "method_name")`，C# 传入 `Callable.From(...)`。Godot 信号仍可在 GDScript 内直接连接匿名函数。
@@ -97,7 +127,7 @@ background.UpdateSurface(3.0, 0.016, Vector2.ZERO, Vector2(1280, 720))
 - [UiTextBinding](runtime/UiTextBinding.cs)：C# 用 `Bind(owner, Action)`／`RefreshTree(root)`；GDScript 用 `BindTo(owner, Callable)`／`RefreshBindings(root)`，更新已有节点上的文本。
 - [UiDropSurface](runtime/UiDropSurface.cs)：`ValidateDrop(position, Variant)` 回调判断合法性；`PositionClicked(position)` 与 `DataDropped(position, data)` 信号交给宿主处理，不限制数据类型。
 - [UiArrow](runtime/UiArrow.cs)：`PointFrom(visual, anchor, tip, color)` 绘制曲线；`anchor` 使用来源视觉节点局部坐标，`tip` 使用箭头本地坐标。绘制时读取最新变换，装饰节点忽略鼠标。
-- [UiShaders](runtime/UiShaders.cs)：`CreateMaterial(name)`／C# `Material(name)` 共享 shader 程序，每次返回独立材质。名称为 `card_surface`、`ambient`、`rectangle_edges`、`ripple`，原始 shader 与 UID 位于 `shaders/`。
+- [UiShaders](runtime/UiShaders.cs)：`CreateMaterial(name)`／C# `Material(name)` 共享 shader 程序，每次返回独立材质。可用名称包括 `card_surface`、`ambient`、`rectangle_edges`、`ripple` 及 0.5.0 的 `highlight_outline`，原始 shader 与 UID 位于 `shaders/`。
 - [AmbientView](runtime/AmbientView.cs)：提供纹理后调用 `UpdateSurface(time, enabled, holdPointer)`，由宿主推进时间并决定是否冻结视差。
 - [UiBurst](runtime/UiBurst.cs)：配置 `Shape`（`cross`／`rays`／`segments`／`ring`）、`Ink`、`Seed`、`Particles`，调用 `EnableRipple(fractured)` 和 `Sample(progress, detailed)`。可选 `FloatingLabel`／`LabelOrigin` 用于数字弹出；节点自身不定义数字含义。粒子数应向 `UiTimeline.Animate` 申报以统一限额。
 
