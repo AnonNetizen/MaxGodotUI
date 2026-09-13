@@ -100,6 +100,30 @@ outline.SetStyle(style, 0.14)
 outline.UpdateSurface(2.0, 0.016)
 ```
 
+## 0.5.0 面板进入与退出
+
+`UiPanelTransition` 是由宿主 `UiTimeline` 推进的通用节点。`Configure(timeline, visual, shownPosition, hiddenPosition, channel)` 绑定独立视觉容器及两个端点，初始呈现隐藏端；不管理遮罩、输入、暂停、层级或业务状态。
+
+- `Enter(seconds)` 使用 Cubic Out，`Exit(seconds)` 使用 Cubic In；按剩余距离缩短时长。相同目标不重启，反向请求保留当前显示位置。
+- `SetPresentation(true)` 使用位移与原始透明度；`false` 在显示位置淡变。切换时收束现有过渡。
+- `Finish()` 立即到达当前目标并发出一次 `Completed(bool shown)`；`Cancel()` 保持当前外观且不发完成信号，之后可再次进入或退出。零时长直接完成。
+- `Amount` 为 0—1 的显示程度，宿主可据此绘制固定遮罩；`TargetShown` 与 `IsTransitioning` 提供状态。目标离树及组件释放取消剩余回调。
+- `UiTimeline.CancelTarget(control)` 只取消该目标，不提前结束其子节点动画；整棵子树释放仍使用 `Clear`。既有 `Enter` 等接口兼容。
+
+```csharp
+var slide = new UiPanelTransition();
+AddChild(slide);
+slide.Configure(timeline, panel, Vector2.Zero, new Vector2(0, -800), 0);
+slide.Enter(0.22);
+// 宿主每帧调用 timeline.Advance(0, delta)，自行决定暂停与速度。
+// 在之后的关闭请求中调用：
+slide.Exit(0.18);
+```
+
+GDScript 可调用同名方法，`Configure` 的五个参数须完整提供；例如 `slide.Completed.connect(func(shown): print(shown))`。完成信号不承担宿主业务操作。
+
+`UiControls.BindPress(button, Callable)` 只在按钮可接收输入时调用回调，重复发射已禁用控件的信号不会穿过输入屏障。`UiTextBinding.Enabled = false` 可让退场视图保留最后文本，避免其业务对象释放后再次刷新。
+
 ## 0.4.0 通用表现 API
 
 新增组件均可在未启用编辑器插件时使用，Godot 属性、`Callable` 和信号对 C#／GDScript 开放。C# 方法的可选参数不会自动成为 GDScript 默认参数；GDScript 调用须给出完整参数，空回调用 `Callable()`，空详情用 `null`。Godot 4.7.2 的 C# `Callable` 不能往返传递 GDScript 匿名函数及绑定参数，见 [Godot 引擎问题 #97358](https://github.com/godotengine/godot/issues/97358)；GDScript 传入 `Callable(self, "method_name")`，C# 传入 `Callable.From(...)`。Godot 信号仍可在 GDScript 内直接连接匿名函数。

@@ -6,6 +6,14 @@ namespace MaxGodotUI;
 [GlobalClass]
 public partial class UiControls : RefCounted
 {
+    public void BindPress(Button button, Callable action)
+    {
+        button.Pressed += () =>
+        {
+            if (button.IsInsideTree() && !button.Disabled && button.GetMouseFilterWithOverride() != Control.MouseFilterEnum.Ignore)
+                UiCallback.Invoke(action);
+        };
+    }
     private static ShaderMaterial? rectangleEdges;
     public TextureRect Texture(Control parent, Texture2D texture, Rect2 rect, float opacity = 1)
     {

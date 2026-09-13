@@ -62,6 +62,10 @@ public partial class UiTimeline : Node
     {
         foreach (var t in active.Where(t => !Alive(t.Owner) || root == t.Owner || root.IsAncestorOf(t.Owner)).ToArray()) Finish(t, finish);
     }
+    public void CancelTarget(Control owner)
+    {
+        foreach (var t in active.Where(t => t.Owner == owner).ToArray()) Finish(t, false);
+    }
     public void FinishAll()
     { foreach (var t in active.ToArray()) Finish(t, true); }
     public override void _ExitTree() => active.Clear();

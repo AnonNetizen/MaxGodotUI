@@ -8,6 +8,7 @@ namespace MaxGodotUI;
 public partial class UiTextBinding : Node
 {
     private Callable refresh;
+    public bool Enabled { get; set; } = true;
     public static void Bind(Node owner, Action update) => Attach(owner, Callable.From(update));
     public static void Attach(Node owner, Callable update)
         => new UiTextBinding().BindTo(owner, update);
@@ -21,7 +22,7 @@ public partial class UiTextBinding : Node
     }
     public static void RefreshTree(Node root)
     {
-        if (root is UiTextBinding binding && UiCallback.Valid(binding.refresh)) UiCallback.Invoke(binding.refresh);
+        if (root is UiTextBinding binding && binding.Enabled && UiCallback.Valid(binding.refresh)) UiCallback.Invoke(binding.refresh);
         foreach (var child in root.GetChildren()) RefreshTree(child);
     }
     public void RefreshBindings(Node root) => RefreshTree(root);
