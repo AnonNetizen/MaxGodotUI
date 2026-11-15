@@ -1,6 +1,6 @@
 # MaxGodotUI
 
-Godot .NET 通用 UI 与视觉表现插件。当前 `0.5.0` 提供程序化背景、交互式悬停说明、显式时钟过渡、视觉层运动、控件工厂与 CanvasItem shader；保留 `0.3.0`／`0.4.0` 的公共接口。运行时无需启用编辑器插件；组件不负责宿主规则或流程。
+Godot .NET 通用 UI 与视觉表现插件。当前 `0.5.1` 提供程序化背景、交互式悬停说明、显式时钟过渡、视觉层运动、控件工厂与 CanvasItem shader，并增加边缘连接与流动直线箭头；保留 `0.3.0`／`0.4.0`／`0.5.0` 的公共接口。运行时无需启用编辑器插件；组件不负责宿主规则或流程。
 
 ## 安装
 
@@ -150,7 +150,9 @@ GDScript 可调用同名方法，`Configure` 的五个参数须完整提供；�
 - [UiControls](runtime/UiControls.cs)：`Label`、`Button`、`Panel`、`Texture`、`Rule` 创建控件；`PadScroll(scroll, content, padding)` 为旋转、阴影等预留内容边距。无业务回调或音效选择。
 - [UiTextBinding](runtime/UiTextBinding.cs)：C# 用 `Bind(owner, Action)`／`RefreshTree(root)`；GDScript 用 `BindTo(owner, Callable)`／`RefreshBindings(root)`，更新已有节点上的文本。
 - [UiDropSurface](runtime/UiDropSurface.cs)：`ValidateDrop(position, Variant)` 回调判断合法性；`PositionClicked(position)` 与 `DataDropped(position, data)` 信号交给宿主处理，不限制数据类型。
-- [UiArrow](runtime/UiArrow.cs)：`PointFrom(visual, anchor, tip, color)` 绘制曲线；`anchor` 使用来源视觉节点局部坐标，`tip` 使用箭头本地坐标。绘制时读取最新变换，装饰节点忽略鼠标。
+- [UiArrow](runtime/UiArrow.cs)：`PointFrom(visual, anchor, tip, color)` 从显式锚点绘制箭头；`anchor` 使用来源视觉节点局部坐标，`tip` 使用箭头本地坐标。`Path` 默认 `UiArrowPath.Curved`，设为 `UiArrowPath.Straight` 使用带描边箭头和流动箭纹的直线。
+  `PointBetween(from, to, color, gap = 6)` 自动连接两个控件朝向彼此的边缘，支持变换、缩放和旋转；间隔单位为箭头局部坐标。重叠或没有有效间隙时不绘制。绘制时读取最新变换，不会落后于布局 Tween。`Origin`、`Tip` 与 `HasSegment` 可读取当前几何。
+  `UpdateSurface(seconds)` 由宿主提供非负秒数；同一时间保持相同流动位置，不读取系统时间或随机数。`SetDetail(2 / 1 / 0)` 分别使用流动箭纹与微光／静态箭纹／静态实线，宿主暂停时保持时间。装饰节点忽略鼠标，不处理目标合法性或输入。
 - [UiShaders](runtime/UiShaders.cs)：`CreateMaterial(name)`／C# `Material(name)` 共享 shader 程序，每次返回独立材质。可用名称包括 `card_surface`、`ambient`、`rectangle_edges`、`ripple` 及 0.5.0 的 `highlight_outline`，原始 shader 与 UID 位于 `shaders/`。
 - [AmbientView](runtime/AmbientView.cs)：提供纹理后调用 `UpdateSurface(time, enabled, holdPointer)`，由宿主推进时间并决定是否冻结视差。
 - [UiBurst](runtime/UiBurst.cs)：配置 `Shape`（`cross`／`rays`／`segments`／`ring`）、`Ink`、`Seed`、`Particles`，调用 `EnableRipple(fractured)` 和 `Sample(progress, detailed)`。可选 `FloatingLabel`／`LabelOrigin` 用于数字弹出；节点自身不定义数字含义。粒子数应向 `UiTimeline.Animate` 申报以统一限额。
