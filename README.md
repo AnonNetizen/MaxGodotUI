@@ -1,6 +1,6 @@
 # MaxGodotUI
 
-Godot .NET 通用 UI 与视觉表现插件。当前 `0.5.1` 提供程序化背景、交互式悬停说明、显式时钟过渡、视觉层运动、控件工厂与 CanvasItem shader，并增加边缘连接与流动直线箭头；保留 `0.3.0`／`0.4.0`／`0.5.0` 的公共接口。运行时无需启用编辑器插件；组件不负责宿主规则或流程。
+Godot .NET 通用 UI 与视觉表现插件。当前 `0.6.0` 提供程序化背景、单遍场景氛围层（`UiSceneAtmosphere`）、方向轨迹／光束／斩击组件（`UiProjectile`）、交互式悬停说明、显式时钟过渡、视觉层运动、控件工厂、边缘连接流动直线箭头与 CanvasItem shader；保留 `0.3.0`—`0.5.1` 的全部公共接口。运行时无需启用编辑器插件；组件不负责宿主规则或流程。
 
 ## 安装
 
@@ -32,6 +32,18 @@ await tween.finished
 ```
 
 宿主提供主题、文本与输入规则；组件不识别卡牌、战斗或平台事件。后续按实际需求增加视觉表现，不提供声音、存档或设置模块。
+
+## 0.6.0 场景氛围层与方向轨迹
+
+[UiSceneAtmosphere](runtime/UiSceneAtmosphere.cs) 继承 `ColorRect`，通过单遍 Compatibility shader [scene_atmosphere](shaders/scene_atmosphere.gdshader) 绘制柔和体积光锥、确定性微尘、外角印刷网点与暗角；不依赖屏幕采样、纹理、内置 `TIME` 或随机源：
+
+- `Configure(lightOrigin, lightColor, shadowColor, beamStrength, dustStrength, halftoneStrength, vignetteStrength, seed)` 一次性设置氛围参数；也可直接读写同名 `[Export]` 属性。
+- `UpdateSurface(time, normalizedPointer)` 由宿主驱动时钟与 `[-1, 1]` 归一化指针；保持 `time` 不变即可在暂停时冻结微尘与光呼吸。
+- `SetDetail(2 / 1 / 0)` 对应完整动态（光束＋微尘＋网点＋暗角＋轻视差）／静态光束与暗角／极简静态暗角；离开场景树自动释放材质。
+
+[UiProjectile](runtime/UiProjectile.cs) 是忽略输入的 `Control`，按调用者传入的 `Sample(progress, detailed)` 绘制方向性轨迹，支持 `beam`（能量光束）、`bolt`（尖锋弹道）、`slash`（弧形斩击）和 `arc`（抛物光弧）四种样式；`Configure(origin, tip, ink, style, width, seed, particles)` 供 C# 与 GDScript 共用，粒子数应由宿主向 `UiTimeline` 申报。
+
+`AmbientView` 新增可选 `ParallaxScale` 与 `SheenStrength` 属性（默认值与 0.4.0 一致）并在 `_ExitTree` 释放材质；`card_surface` 增加可选 `dissolve_ink` uniform 与斜切发光解体效果。
 
 ## 0.5.0 程序化背景
 
